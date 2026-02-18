@@ -1,11 +1,197 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Tetris</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+        }
+        
+        #gameContainer {
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #fff;
+            background-color: #000;
+            display: block;
+            margin: 20px auto;
+        }
+        
+        h1 {
+            color: #fff;
+            margin: 0 0 20px 0;
+        }
+        
+        #info {
+            color: #fff;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    <h1>HOLA MUNDO</h1>
+    <div id="gameContainer">
+        <h1>TETRIS</h1>
+        <canvas id="tetrisCanvas" width="200" height="400"></canvas>
+        <div id="info">
+            <p>Puntuación: <span id="score">0</span></p>
+            <p>Flechas: Mover | Espacio: Rotar | P: Pausa</p>
+        </div>
+        <button onclick="startGame()">Iniciar</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('tetrisCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+
+        const gridWidth = 10;
+        const gridHeight = 20;
+        const blockSize = canvas.width / gridWidth;
+        let grid = [];
+        let score = 0;
+        let gameRunning = false;
+        let currentPiece = null;
+        let nextPiece = null;
+
+        const pieces = [
+            [[1,1,1,1]], // I
+            [[1,1],[1,1]], // O
+            [[0,1,0],[1,1,1]], // T
+            [[1,0,0],[1,1,1]], // L
+            [[0,0,1],[1,1,1]], // J
+            [[1,1,0],[0,1,1]], // S
+            [[0,1,1],[1,1,0]]  // Z
+        ];
+
+        const colors = ['#00F0F1', '#FFFF00', '#9933FF', '#FF9933', '#0066FF', '#00FF00', '#FF3333'];
+
+        function initGrid() {
+            grid = Array(gridHeight).fill(null).map(() => Array(gridWidth).fill(0));
+        }
+
+        function createPiece() {
+            const index = Math.floor(Math.random() * pieces.length);
+            return {
+                shape: pieces[index],
+                color: colors[index],
+                x: Math.floor(gridWidth / 2) - 1,
+                y: 0
+            };
+        }
+
+        function canMove(piece, x, y) {
+            for (let row = 0; row < piece.shape.length; row++) {
+                for (let col = 0; col < piece.shape[row].length; col++) {
+                    if (piece.shape[row][col]) {
+                        const newX = x + col;
+                        const newY = y + row;
+                        if (newX < 0 || newX >= gridWidth || newY >= gridHeight) return false;
+                        if (newY >= 0 && grid[newY][newX]) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function placePiece(piece) {
+            for (let row = 0; row < piece.shape.length; row++) {
+                for (let col = 0; col < piece.shape[row].length; col++) {
+                    if (piece.shape[row][col]) {
+                        const y = piece.y + row;
+                        const x = piece.x + col;
+                        if (y >= 0) grid[y][x] = piece.color;
+                    }
+                }
+            }
+            clearLines();
+        }
+
+        function clearLines() {
+            for (let row = gridHeight - 1; row >= 0; row--) {
+                if (grid[row].every(cell => cell)) {
+                    grid.splice(row, 1);
+                    grid.unshift(Array(gridWidth).fill(0));
+                    score += 100;
+                }
+            }
+            scoreDisplay.textContent = score;
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let row = 0; row < gridHeight; row++) {
+                for (let col = 0; col < gridWidth; col++) {
+                    if (grid[row][col]) {
+                        ctx.fillStyle = grid[row][col];
+                        ctx.fillRect(col * blockSize, row * blockSize, blockSize - 1, blockSize - 1);
+                    }
+                }
+            }
+
+            if (currentPiece) {
+                ctx.fillStyle = currentPiece.color;
+                for (let row = 0; row < currentPiece.shape.length; row++) {
+                    for (let col = 0; col < currentPiece.shape[row].length; col++) {
+                        if (currentPiece.shape[row][col]) {
+                            ctx.fillRect((currentPiece.x + col) * blockSize, (currentPiece.y + row) * blockSize, blockSize - 1, blockSize - 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            if (!currentPiece) currentPiece = createPiece();
+
+            if (canMove(currentPiece, currentPiece.x, currentPiece.y + 1)) {
+                currentPiece.y++;
+            } else {
+                placePiece(currentPiece);
+                currentPiece = createPiece();
+                if (!canMove(currentPiece, currentPiece.x, currentPiece.y)) {
+                    gameRunning = false;
+                    alert('Game Over! Puntuación: ' + score);
+                }
+            }
+
+            draw();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning || !currentPiece) return;
+
+            if (e.key === 'ArrowLeft' && canMove(currentPiece, currentPiece.x - 1, currentPiece.y)) currentPiece.x--;
+            if (e.key === 'ArrowRight' && canMove(currentPiece, currentPiece.x + 1, currentPiece.y)) currentPiece.x++;
+        });
+
+        function startGame() {
+            initGrid();
+            score = 0;
+            scoreDisplay.textContent = '0';
+            gameRunning = true;
+            setInterval(gameLoop, 500);
+        }
+    </script>
 </body>
 </html>
